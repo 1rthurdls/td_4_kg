@@ -3,9 +3,11 @@ MATCH (u:User)
 RETURN u
 LIMIT 5;
 
-//2: Find five random FOLLOWS relationships
-MATCH (u1:User)-[f:FOLLOWS]->(u2:User)
-RETURN u1.screenName AS follower, u2.screenName AS following
+// 2: Find five random FOLLOWS relationships
+MATCH (u1:User)-[:FOLLOWS]->(u2:User)
+RETURN u1.username AS follower,
+       u2.username AS following
+ORDER BY rand()
 LIMIT 5;
 
 //3:Find the text property of three random Tweet nodes
@@ -14,8 +16,13 @@ RETURN t.text
 LIMIT 3;
 
 //4:Generate a Cypher statement to visualize sample RETWEETS relationships
-MATCH (u:User)-[:POSTS]->(retweet:Tweet)-[r:RETWEETS]->(original:Tweet)<-[:POSTS]-(author:User)
-RETURN u, retweet, r, original, author
+MATCH (u:User)-[:PUBLISH]->(retweet:Tweet)
+MATCH (retweet)-[:RETWEETS]->(original:Tweet)
+MATCH (author:User)-[:PUBLISH]->(original)
+RETURN u.username AS retweeter,
+       retweet.id    AS retweet_id,
+       original.id   AS original_id,
+       author.username AS original_author
 LIMIT 25;
 
 //5: Why using merge and not create ?
@@ -24,14 +31,13 @@ LIMIT 25;
 
 //6: Calculate the ratio of missing values for the createdAt node property of the Tweet nodes
 MATCH (t:Tweet)
-WITH count(t) AS totalTweets
-MATCH (t2:Tweet)
-WHERE t2.createdAt IS NULL
-WITH totalTweets, count(t2) AS missingCreatedAt
+WITH 
+  count(t) AS totalTweets,
+  count(CASE WHEN t.createdAt IS NULL THEN 1 END) AS missingCreatedAt
 RETURN 
   totalTweets,
   missingCreatedAt,
-  round(toFloat(missingCreatedAt) / totalTweets * 100, 2) AS missingPercentage;
+  round(100.0 * missingCreatedAt / totalTweets, 2) AS missingPercentage;
 
 //7 : Count the number of relationships by their type. To count the number of relationships grouped by their type, you can start by describing a relationship pattern
 MATCH ()-[r]->()
@@ -47,24 +53,27 @@ LIMIT 5;
 
 //9 :Calculate the distribution of tweets grouped by year created
 MATCH (t:Tweet)
-WHERE t.createdAt IS NOT NULL
-WITH date(datetime({epochMillis: t.createdAt})).year AS year, count(t) AS tweetCount
-RETURN year, tweetCount
-ORDER BY year;
+RETURN t.createdAt,
+       date( substring(t.createdAt, 0, 10) ) AS created_date
+LIMIT 5;
 
-//10: Use the MATCH clause in combination with the WHERE clause to select all the tweets that were created in 2021
-MATCH (t:Tweet)
-WHERE t.createdAt IS NOT NULL 
-  AND date(datetime({epochMillis: t.createdAt})).year = 2021
-RETURN t.text AS text, t.createdAt AS createdAt;
-
-//11: Return the top four days with the highest count of created tweets
+// 10: Select all tweets created in 2021
 MATCH (t:Tweet)
 WHERE t.createdAt IS NOT NULL
-WITH date(datetime({epochMillis: t.createdAt})) AS tweetDate, count(t) AS tweetCount
-RETURN tweetDate, tweetCount
+  AND datetime(t.createdAt).year = 2021
+RETURN t
+LIMIT 50;
+
+// 11: Return the top four days with the highest count of created tweets
+MATCH (t:Tweet)
+WHERE t.createdAt IS NOT NULL
+WITH date(datetime(t.createdAt)) AS day
+RETURN 
+  day,
+  count(*) AS tweetCount
 ORDER BY tweetCount DESC
 LIMIT 4;
+
 
 //12 Count the number of users who were mentioned but haven’t published a single tweet
 MATCH (u:User)
@@ -72,15 +81,16 @@ WHERE NOT (u)-[:POSTS]->(:Tweet)
   AND (u)<-[:MENTIONS]-()
 RETURN count(u) AS mentionedButNoTweets;
 
-//13 Find the top five users with the most distinct tweets retweeted
-MATCH (u:User)-[:POSTS]->(t:Tweet)<-[:RETWEETS]-(retweet:Tweet)
+// 13: Find the top five users with the most distinct tweets retweeted
+MATCH (u:User)-[:PUBLISH]->(original:Tweet)<-[:RETWEETS]-(retweet:Tweet)
 WITH u, count(DISTINCT retweet) AS retweetCount
 RETURN 
-  u.screenName AS user,
+  u.username AS username,
   u.name AS name,
   retweetCount
 ORDER BY retweetCount DESC
 LIMIT 5;
+
 
 //14 Find the top five most mentioned users
 MATCH (u:User)<-[:MENTIONS]-(t:Tweet)
