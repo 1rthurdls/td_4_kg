@@ -1,0 +1,18 @@
+services:
+  neo4j:
+    build: .
+    container_name: mon-conteneur
+    environment:
+      NEO4J_AUTH: neo4j/password123
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_memory_pagecache_size: 1G
+      NEO4J_dbms_memory_heap_initial__size: 1G
+      NEO4J_dbms_memory_heap_max__size: 2G
+    ports:
+      - "7475:7474"  # host:container (HTTP)
+      - "7688:7687"  # host:container (Bolt)
+    volumes:
+      - neo4j_data:/data
+
+volumes:
+  neo4j_data:

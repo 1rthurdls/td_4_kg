@@ -1,0 +1,114 @@
+// 1 : Find five random user nodes
+MATCH (u:User)
+RETURN u
+LIMIT 5;
+
+//2: Find five random FOLLOWS relationships
+MATCH (u1:User)-[f:FOLLOWS]->(u2:User)
+RETURN u1.screenName AS follower, u2.screenName AS following
+LIMIT 5;
+
+//3:Find the text property of three random Tweet nodes
+MATCH (t:Tweet)
+RETURN t.text
+LIMIT 3;
+
+//4:Generate a Cypher statement to visualize sample RETWEETS relationships
+MATCH (u:User)-[:POSTS]->(retweet:Tweet)-[r:RETWEETS]->(original:Tweet)<-[:POSTS]-(author:User)
+RETURN u, retweet, r, original, author
+LIMIT 25;
+
+//5: Why using merge and not create ?
+//MERGE checks whether a node/relationship already exists, finds it if it does, creates it if it doesn’t, guarantees uniqueness, and is idempotent, while CREATE always makes a new node without checking existence, can produce duplicates but is faster when uniqueness 
+//is already ensured; use MERGE for data imports and unique IDs, and CREATE for temporary data or when you are certain no duplicates can occur.
+
+//6: Calculate the ratio of missing values for the createdAt node property of the Tweet nodes
+MATCH (t:Tweet)
+WITH count(t) AS totalTweets
+MATCH (t2:Tweet)
+WHERE t2.createdAt IS NULL
+WITH totalTweets, count(t2) AS missingCreatedAt
+RETURN 
+  totalTweets,
+  missingCreatedAt,
+  round(toFloat(missingCreatedAt) / totalTweets * 100, 2) AS missingPercentage;
+
+//7 : Count the number of relationships by their type. To count the number of relationships grouped by their type, you can start by describing a relationship pattern
+MATCH ()-[r]->()
+RETURN type(r) AS relationshipType, count(r) AS count
+ORDER BY count DESC;
+
+//8 : Compare the text of an original tweet and its retweet
+MATCH (retweet:Tweet)-[:RETWEETS]->(original:Tweet)
+RETURN 
+  original.text AS originalText,
+  retweet.text AS retweetText
+LIMIT 5;
+
+//9 :Calculate the distribution of tweets grouped by year created
+MATCH (t:Tweet)
+WHERE t.createdAt IS NOT NULL
+WITH date(datetime({epochMillis: t.createdAt})).year AS year, count(t) AS tweetCount
+RETURN year, tweetCount
+ORDER BY year;
+
+//10: Use the MATCH clause in combination with the WHERE clause to select all the tweets that were created in 2021
+MATCH (t:Tweet)
+WHERE t.createdAt IS NOT NULL 
+  AND date(datetime({epochMillis: t.createdAt})).year = 2021
+RETURN t.text AS text, t.createdAt AS createdAt;
+
+//11: Return the top four days with the highest count of created tweets
+MATCH (t:Tweet)
+WHERE t.createdAt IS NOT NULL
+WITH date(datetime({epochMillis: t.createdAt})) AS tweetDate, count(t) AS tweetCount
+RETURN tweetDate, tweetCount
+ORDER BY tweetCount DESC
+LIMIT 4;
+
+//12 Count the number of users who were mentioned but haven’t published a single tweet
+MATCH (u:User)
+WHERE NOT (u)-[:POSTS]->(:Tweet)
+  AND (u)<-[:MENTIONS]-()
+RETURN count(u) AS mentionedButNoTweets;
+
+//13 Find the top five users with the most distinct tweets retweeted
+MATCH (u:User)-[:POSTS]->(t:Tweet)<-[:RETWEETS]-(retweet:Tweet)
+WITH u, count(DISTINCT retweet) AS retweetCount
+RETURN 
+  u.screenName AS user,
+  u.name AS name,
+  retweetCount
+ORDER BY retweetCount DESC
+LIMIT 5;
+
+//14 Find the top five most mentioned users
+MATCH (u:User)<-[:MENTIONS]-(t:Tweet)
+WITH u, count(t) AS mentionCount
+RETURN 
+  u.screenName AS user,
+  u.name AS name,
+  mentionCount
+ORDER BY mentionCount DESC
+LIMIT 5;
+
+//15 Find the 10 most followed Users
+MATCH (u:User)<-[:FOLLOWS]-(follower:User)
+WITH u, count(follower) AS followerCount
+RETURN 
+  u.screenName AS user,
+  u.name AS name,
+  followerCount
+ORDER BY followerCount DESC
+LIMIT 10;
+
+// 16 Find the top 10 users who follow the most people
+MATCH (u:User)-[:FOLLOWS]->(followed:User)
+WITH u, count(followed) AS followingCount
+RETURN 
+  u.screenName AS user,
+  u.name AS name,
+  followingCount
+ORDER BY followingCount DESC
+LIMIT 10;
+

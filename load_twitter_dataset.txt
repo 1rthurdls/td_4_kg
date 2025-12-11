@@ -1,0 +1,44 @@
+
+LOAD CSV WITH HEADERS FROM "https://bit.ly/39JYakC" AS row
+WITH row
+LIMIT 5
+RETURN row
+
+LOAD CSV WITH HEADERS FROM "https://bit.ly/39JYakC" AS row
+MERGE (u:User {id:row.id})
+ON CREATE SET u.name = row.name,
+              u.username = row.username,
+              u.registeredAt = datetime(row.createdAt)
+
+:auto LOAD CSV WITH HEADERS FROM "https://bit.ly/3n08lEL" AS row CALL {
+WITH row
+      MATCH (s:User {id:row.source})
+        MATCH (t:User {id:row.target})
+      MERGE (s)-[:FOLLOWS]->(t)
+    } IN TRANSACTIONS
+
+:auto LOAD CSV WITH HEADERS FROM "https://bit.ly/3y3ODyc" AS row
+CALL {
+  WITH row
+  MATCH (a:User{id:row.author})
+  MERGE (p:Tweet{id:row.id})
+  ON CREATE SET p.text = row.text, p.createdAt = datetime(row.createdAt)
+  MERGE (a)-[:PUBLISH]->(p)
+} IN TRANSACTIONS
+
+LOAD CSV WITH HEADERS FROM "https://bit.ly/3tINZ6D" AS row
+MATCH (t:Tweet {id:row.post})
+MATCH (u:User {id:row.user})
+MERGE (t)-[:MENTIONS]->(u);
+
+LOAD CSV WITH HEADERS FROM "https://bit.ly/3QyDrRl" AS row
+MATCH (source:Tweet {id:row.source})
+MATCH (target:Tweet {id:row.target})
+MERGE (source)-[:RETWEETS]->(target);
+
+LOAD CSV WITH HEADERS FROM "https://bit.ly/3b9Wgdx" AS row
+MATCH (source:Tweet {id:row.source})
+MATCH (target:Tweet {id:row.target})
+MERGE (source)-[:IN_REPLY_TO]->(target);
+
+CALL db.schema.visualization()
